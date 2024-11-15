@@ -228,8 +228,55 @@ public class TransactionAwareBufferedWriter extends Writer {
 	 */
 	@Override
 	public void flush() throws IOException {
-		if (!transactionActive() && forceSync) {
+
+		// FIXME original source
+		// if (!transactionActive() && forceSync) {
+		// FIXME Remove the condition on forceSync
+		if (!transactionActive()) {
 			channel.force(false);
+			logger.debug("flush() - Flushing transactional writer : no transaction");
+		}
+		else {
+			// FIXME complete() is not callable as private from a TransactionSynchronization.
+			// So copy the code to write the buffer content to the channel.
+			// Is forceSync the good condition to write the buffer content to the channel?
+			if (forceSync) {
+				logger.debug("flush() - Force flushing transactional writer");
+
+				channel.force(false);
+
+				// Enforce to write the buffer content to the channel
+				StringBuilder buffer = (StringBuilder) TransactionSynchronizationManager.getResource(bufferKey);
+				if (buffer != null) {
+					String string = buffer.toString();
+					byte[] bytes = string.getBytes(encoding);
+					int bufferLength = bytes.length;
+					logger.debug("flush() - Completing buffer of " + bufferLength + " bytes, buffer content : " + string);
+					ByteBuffer bb = ByteBuffer.wrap(bytes);
+					int bytesWritten = channel.write(bb);
+					if (bytesWritten != bufferLength) {
+						throw new IOException("All bytes to be written were not successfully written");
+					}
+
+					// Clear buffer
+					if (TransactionSynchronizationManager.hasResource(bufferKey)) {
+						logger.debug("flush() - Unbind resource for bufferKey " + bufferKey);
+						TransactionSynchronizationManager.unbindResource(bufferKey);
+					}
+					else {
+						logger.debug("flush() - No resource to clear for bufferKey " + bufferKey);
+					}
+
+					// Is this useful ?
+					if (TransactionSynchronizationManager.hasResource(closeKey)) {
+						logger.debug("flush() - Unbind resource for closeKey " + closeKey);
+						TransactionSynchronizationManager.unbindResource(closeKey);
+					}
+					else {
+						logger.debug("flush() - No resource to clear for closeKey " + closeKey);
+					}
+				}
+			}
 		}
 	}
 
