@@ -89,12 +89,12 @@ public class MyBatchJobConfiguration {
                 .reader(myBatchItemReader)
                 .processor(new MyDataProcessor(jdbcTemplate))
                 .writer(myBatchJsonItemWriter)
-                // FIXME glelarge Is this required ?
+                // FIXME Is this required ?
                 .stream(myBatchDefaultJsonItemWriter())
                 // This defines the multi-threading using the TaskExecutor
                 .taskExecutor(applicationTaskExecutor)
                 // Set the number of concurrent threads
-                // FIXME glelarge The method is deprecated, but the replacement is not clear
+                // FIXME The method is deprecated, but the replacement is not clear
                 .throttleLimit(2);
 
         return stepBuilder.build();
@@ -179,7 +179,7 @@ public class MyBatchJobConfiguration {
         return new JsonFileItemWriterBuilder<MyData>()
                 .name("myBatchJsonItemWriter")
                 .resource(this.jsonFileResource)
-                // FIXME glelarge Set to true to enforce synchronous writing
+                // FIXME Set to true to enforce synchronous writing
                 .forceSync(true)
                 .jsonObjectMarshaller(marshaller)
                 .build();
