@@ -241,7 +241,10 @@ public class TransactionAwareBufferedWriter extends Writer {
 	@Override
 	public void write(char[] cbuf, int off, int len) throws IOException {
 
-		if (!transactionActive()) {
+		// FIXME original source
+		// if (!transactionActive()) {
+		// FIXME add test on forceSync
+		if (!transactionActive() || forceSync) {
 			byte[] bytes = new String(cbuf, off, len).getBytes(encoding);
 			int length = bytes.length;
 			ByteBuffer bb = ByteBuffer.wrap(bytes);
@@ -269,7 +272,10 @@ public class TransactionAwareBufferedWriter extends Writer {
 	public void write(String str, int off, int len) throws IOException {
 		logger.debug("write(String) - Writing string to writer");
 
-		if (!transactionActive()) {
+		// FIXME original source
+		// if (!transactionActive()) {
+		// FIXME add test on forceSync
+		if (!transactionActive() || forceSync) {
 			byte[] bytes = str.substring(off, off + len).getBytes(encoding);
 			int length = bytes.length;
 			ByteBuffer bb = ByteBuffer.wrap(bytes);
