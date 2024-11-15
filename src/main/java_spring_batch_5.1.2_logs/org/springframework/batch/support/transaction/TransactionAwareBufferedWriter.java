@@ -21,6 +21,8 @@ import java.io.Writer;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.springframework.batch.item.WriteFailedException;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -38,6 +40,8 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
  *
  */
 public class TransactionAwareBufferedWriter extends Writer {
+
+	private static final Log logger = LogFactory.getLog(TransactionAwareBufferedWriter.class);
 
 	private final Object bufferKey;
 
@@ -88,14 +92,17 @@ public class TransactionAwareBufferedWriter extends Writer {
 	 * @return the current buffer
 	 */
 	private StringBuilder getCurrentBuffer() {
+		logger.debug("getCurrentBuffer() - Getting current buffer for key " + bufferKey);
 
 		if (!TransactionSynchronizationManager.hasResource(bufferKey)) {
 
+			logger.debug("getCurrentBuffer() - No buffer found, creating new one");
 			TransactionSynchronizationManager.bindResource(bufferKey, new StringBuilder());
 
 			TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
 				@Override
 				public void afterCompletion(int status) {
+					logger.debug("afterCompletion() - After completion, clearing buffer (status not used: " + status + ")");
 					clear();
 				}
 
@@ -103,7 +110,11 @@ public class TransactionAwareBufferedWriter extends Writer {
 				public void beforeCommit(boolean readOnly) {
 					try {
 						if (!readOnly) {
+							logger.debug("beforeCommit() - Before commit, completing buffer");
 							complete();
+						}
+						else {
+							logger.debug("beforeCommit() - Before commit, readonly, do not complete buffer");
 						}
 					}
 					catch (IOException e) {
@@ -117,26 +128,47 @@ public class TransactionAwareBufferedWriter extends Writer {
 						String string = buffer.toString();
 						byte[] bytes = string.getBytes(encoding);
 						int bufferLength = bytes.length;
+						logger.debug("complete() - Completing buffer of " + bufferLength + " bytes, buffer content : " + string);
 						ByteBuffer bb = ByteBuffer.wrap(bytes);
 						int bytesWritten = channel.write(bb);
 						if (bytesWritten != bufferLength) {
 							throw new IOException("All bytes to be written were not successfully written");
 						}
 						if (forceSync) {
+							logger.debug("complete() - Channel forcing sync on commit");
 							channel.force(false);
 						}
+						else {
+							logger.debug("complete() - Channel not forcing sync on commit");
+						}
 						if (TransactionSynchronizationManager.hasResource(closeKey)) {
+							logger.debug("complete() - Resource found for closeKey " + closeKey + " : " + closeCallback.getClass().getName());
 							closeCallback.run();
 						}
+						else {
+							logger.debug("complete() - No resource found for closeKey " + closeKey);
+						}
+					}
+					else {
+						logger.debug("complete() - Buffer is empty, nothing to complete");
 					}
 				}
 
 				private void clear() {
+					logger.debug("clear() - Clearing buffer");
 					if (TransactionSynchronizationManager.hasResource(bufferKey)) {
+						logger.debug("clear() - Unbind resource for bufferKey " + bufferKey);
 						TransactionSynchronizationManager.unbindResource(bufferKey);
 					}
+					else {
+						logger.debug("clear() - No resource to clear for bufferKey " + bufferKey);
+					}
 					if (TransactionSynchronizationManager.hasResource(closeKey)) {
+						logger.debug("clear() - Unbind resource for closeKey " + closeKey);
 						TransactionSynchronizationManager.unbindResource(closeKey);
+					}
+					else {
+						logger.debug("clear() - No resource to clear for closeKey " + closeKey);
 					}
 				}
 
@@ -179,6 +211,7 @@ public class TransactionAwareBufferedWriter extends Writer {
 	 */
 	@Override
 	public void close() throws IOException {
+		logger.debug("close() - Closing writer");
 		if (transactionActive()) {
 			if (getCurrentBuffer().length() > 0) {
 				TransactionSynchronizationManager.bindResource(closeKey, Boolean.TRUE);
@@ -217,10 +250,13 @@ public class TransactionAwareBufferedWriter extends Writer {
 				throw new IOException(
 						"Unable to write all data.  Bytes to write: " + len + ".  Bytes written: " + bytesWritten);
 			}
+			logger.debug("write(char[]) - Transaction not active, wrote " + bytesWritten + " bytes (char[]) : " + new String(cbuf, off, len));
 			return;
 		}
 
+		logger.debug("write(char[]) - Transaction is active, buffering data (char[]) : " + new String(cbuf, off, len));
 		StringBuilder buffer = getCurrentBuffer();
+		logger.debug("write(char[]) - #### Current buffer (char[]) : " + buffer.toString());
 		buffer.append(cbuf, off, len);
 	}
 
@@ -231,6 +267,7 @@ public class TransactionAwareBufferedWriter extends Writer {
 	 */
 	@Override
 	public void write(String str, int off, int len) throws IOException {
+		logger.debug("write(String) - Writing string to writer");
 
 		if (!transactionActive()) {
 			byte[] bytes = str.substring(off, off + len).getBytes(encoding);
@@ -241,10 +278,13 @@ public class TransactionAwareBufferedWriter extends Writer {
 				throw new IOException(
 						"Unable to write all data.  Bytes to write: " + len + ".  Bytes written: " + bytesWritten);
 			}
+			logger.debug("write(String) - Transaction not active, wrote " + bytesWritten + " bytes (String) : " + str.substring(off, off + len));
 			return;
 		}
 
+		logger.debug("write(String) - Transaction is active, buffering data (String) : " + str.substring(off, off + len));
 		StringBuilder buffer = getCurrentBuffer();
+		logger.debug("write(String) - #### Current buffer (String): " + buffer.length() + " / " + buffer.toString());
 		buffer.append(str, off, off + len);
 	}
 

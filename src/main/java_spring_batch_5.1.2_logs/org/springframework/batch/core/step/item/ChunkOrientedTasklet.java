@@ -72,7 +72,9 @@ public class ChunkOrientedTasklet<I> implements Tasklet {
 			}
 		}
 
+		logger.debug("Will process the chunks");
 		chunkProcessor.process(contribution, inputs);
+		logger.debug("Will post-process the chunks");
 		chunkProvider.postProcess(contribution, inputs);
 
 		// Allow a message coming back from the processor to say that we

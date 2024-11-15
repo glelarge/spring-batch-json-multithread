@@ -230,7 +230,9 @@ public abstract class AbstractFileItemWriter<T> extends AbstractItemStreamItemWr
 
 		OutputState state = getOutputState();
 
+        logger.debug("OutputState ID: " + System.identityHashCode(state));
 		String lines = doWrite(items);
+        logger.debug("Writing to file: " + lines);
 		try {
 			state.write(lines);
 		}
@@ -279,6 +281,8 @@ public abstract class AbstractFileItemWriter<T> extends AbstractItemStreamItemWr
 				state = null;
 			}
 		}
+
+        logger.debug("Closing file.");
 	}
 
 	/**
@@ -292,6 +296,8 @@ public abstract class AbstractFileItemWriter<T> extends AbstractItemStreamItemWr
 		super.open(executionContext);
 
 		Assert.notNull(resource, "The resource must be set");
+
+        logger.debug("Opening file for writing.");
 
 		if (!getOutputState().isInitialized()) {
 			doOpen(executionContext);
@@ -362,6 +368,7 @@ public abstract class AbstractFileItemWriter<T> extends AbstractItemStreamItemWr
 			state.setDeleteIfExists(shouldDeleteIfExists);
 			state.setAppendAllowed(append);
 			state.setEncoding(encoding);
+            logger.debug("Output state initialized with file: " + file.getAbsolutePath());
 		}
 		return state;
 	}
@@ -434,12 +441,14 @@ public abstract class AbstractFileItemWriter<T> extends AbstractItemStreamItemWr
 			lastMarkedByteOffsetPosition = executionContext.getLong(getExecutionContextKey(RESTART_DATA_NAME));
 			linesWritten = executionContext.getLong(getExecutionContextKey(WRITTEN_STATISTICS_NAME));
 			if (shouldDeleteIfEmpty && linesWritten == 0) {
+               logger.debug("No lines written, deleting output file");
 				// previous execution deleted the output file because no items were
 				// written
 				restarted = false;
 				lastMarkedByteOffsetPosition = 0;
 			}
 			else {
+               logger.debug("Restarting from position: " + lastMarkedByteOffsetPosition);
 				restarted = true;
 			}
 		}
@@ -486,6 +495,7 @@ public abstract class AbstractFileItemWriter<T> extends AbstractItemStreamItemWr
 					closeStream();
 				}
 			}
+            logger.debug("Output state closed.");
 		}
 
 		private void closeStream() {
@@ -507,6 +517,7 @@ public abstract class AbstractFileItemWriter<T> extends AbstractItemStreamItemWr
 					throw new ItemStreamException("Unable to close the ItemWriter", ioe);
 				}
 			}
+            logger.debug("File channel and output stream closed.");
 		}
 
 		/**
@@ -515,11 +526,22 @@ public abstract class AbstractFileItemWriter<T> extends AbstractItemStreamItemWr
 		 */
 		public void write(String line) throws IOException {
 			if (!initialized) {
+               logger.debug("Must initialize writer before writing");
 				initializeBufferedWriter();
 			}
+            logger.debug("Buffered writer initialized");
 
 			outputBufferedWriter.write(line);
+            logger.debug("Line is written, will flush");
+			// FIXME Call outputBufferedWriter.complete() if TransactionAwareBufferedWriter.complete() is set public ?
 			outputBufferedWriter.flush();
+
+
+			// if (transactional) {
+			// 	((TransactionAwareBufferedWriter) outputBufferedWriter).complete();
+			// }
+
+			logger.debug("Buffer flushed with line: " + line);
 		}
 
 		/**
@@ -527,6 +549,7 @@ public abstract class AbstractFileItemWriter<T> extends AbstractItemStreamItemWr
 		 * @throws IOException if unable to work with file
 		 */
 		public void truncate() throws IOException {
+           logger.debug("Truncating file at position: " + lastMarkedByteOffsetPosition);
 			fileChannel.truncate(lastMarkedByteOffsetPosition);
 			fileChannel.position(lastMarkedByteOffsetPosition);
 		}
@@ -551,19 +574,26 @@ public abstract class AbstractFileItemWriter<T> extends AbstractItemStreamItemWr
 				// Bug in IO library? This doesn't work...
 				// lastMarkedByteOffsetPosition = fileChannel.position();
 				if (file.length() > 0) {
+                   logger.debug("Appending to file: " + file.getAbsolutePath() + " with length: " + file.length());
+                    
 					appending = true;
 					// Don't write the headers again
 				}
+                else {
+                   logger.debug("Appending to empty file: " + file.getAbsolutePath());
+                }
 			}
 
 			Assert.state(outputBufferedWriter != null, "Unable to initialize buffered writer");
 			// in case of restarting reset position to last committed point
 			if (restarted) {
+               logger.debug("Restarting at position: " + lastMarkedByteOffsetPosition);
 				checkFileSize();
 				truncate();
 			}
 
 			initialized = true;
+            logger.debug("Buffered writer initialized for file: " + file.getAbsolutePath() + " / size: " + fileChannel.size());
 		}
 
 		public boolean isInitialized() {
@@ -578,6 +608,7 @@ public abstract class AbstractFileItemWriter<T> extends AbstractItemStreamItemWr
 			try {
 				final FileChannel channel = fileChannel;
 				if (transactional) {
+                   logger.debug("Creating transactional buffered writer / size " + fileChannel.size());
 					TransactionAwareBufferedWriter writer = new TransactionAwareBufferedWriter(channel,
 							this::closeStream);
 
@@ -587,6 +618,7 @@ public abstract class AbstractFileItemWriter<T> extends AbstractItemStreamItemWr
 				}
 				else {
 
+                   logger.debug("Creating buffered writer / size " + fileChannel.size());
 					return new BufferedWriter(Channels.newWriter(fileChannel, encoding)) {
 						@Override
 						public void flush() throws IOException {
@@ -597,6 +629,9 @@ public abstract class AbstractFileItemWriter<T> extends AbstractItemStreamItemWr
 						}
 					};
 				}
+            }
+            catch (IOException ioe) {
+                throw new ItemStreamException("Unable to create buffered writer", ioe);
 			}
 			catch (UnsupportedCharsetException ucse) {
 				throw new ItemStreamException("Bad encoding configuration for output file " + fileChannel, ucse);

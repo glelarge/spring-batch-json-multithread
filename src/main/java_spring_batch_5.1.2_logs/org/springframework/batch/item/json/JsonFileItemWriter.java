@@ -18,6 +18,8 @@ package org.springframework.batch.item.json;
 
 import java.util.Iterator;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.springframework.batch.item.Chunk;
 import org.springframework.batch.item.support.AbstractFileItemWriter;
 import org.springframework.core.io.WritableResource;
@@ -50,6 +52,8 @@ import org.springframework.util.ClassUtils;
  */
 public class JsonFileItemWriter<T> extends AbstractFileItemWriter<T> {
 
+	private static final Log logger = LogFactory.getLog(JsonFileItemWriter.class);
+
 	private static final char JSON_OBJECT_SEPARATOR = ',';
 
 	private static final char JSON_ARRAY_START = '[';
@@ -64,6 +68,8 @@ public class JsonFileItemWriter<T> extends AbstractFileItemWriter<T> {
 	 * @param jsonObjectMarshaller used to marshal object into json representation
 	 */
 	public JsonFileItemWriter(WritableResource resource, JsonObjectMarshaller<T> jsonObjectMarshaller) {
+        super();
+        logger.debug("JsonFileItemWriter constructor called by thread: " + Thread.currentThread().getName());
 		Assert.notNull(resource, "resource must not be null");
 		Assert.notNull(jsonObjectMarshaller, "json object marshaller must not be null");
 		setResource(resource);
@@ -80,6 +86,7 @@ public class JsonFileItemWriter<T> extends AbstractFileItemWriter<T> {
 	 */
 	@Override
 	public void afterPropertiesSet() throws Exception {
+        logger.debug("afterPropertiesSet called by thread: " + Thread.currentThread().getName());
 		if (this.append) {
 			this.shouldDeleteIfExists = false;
 		}
@@ -90,11 +97,13 @@ public class JsonFileItemWriter<T> extends AbstractFileItemWriter<T> {
 	 * @param jsonObjectMarshaller the marshaller to use
 	 */
 	public void setJsonObjectMarshaller(JsonObjectMarshaller<T> jsonObjectMarshaller) {
+        logger.debug("setJsonObjectMarshaller called by thread: " + Thread.currentThread().getName());
 		this.jsonObjectMarshaller = jsonObjectMarshaller;
 	}
 
 	@Override
 	public String doWrite(Chunk<? extends T> items) {
+        logger.debug("doWrite called by thread: " + Thread.currentThread().getName());
 		StringBuilder lines = new StringBuilder();
 		Iterator<? extends T> iterator = items.iterator();
 		if (!items.isEmpty() && state.getLinesWritten() > 0) {

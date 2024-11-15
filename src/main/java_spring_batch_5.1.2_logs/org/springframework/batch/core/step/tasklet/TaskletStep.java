@@ -382,10 +382,11 @@ public class TaskletStep extends AbstractStep {
 			copy(stepExecution, oldVersion);
 
 			try {
-
 				try {
 					try {
+						logger.debug("Execute the TaskletStep");
 						result = tasklet.execute(contribution, chunkContext);
+						logger.debug("TaskletStep executed with result: " + result);
 						if (result == null) {
 							result = RepeatStatus.FINISHED;
 						}
@@ -406,6 +407,7 @@ public class TaskletStep extends AbstractStep {
 					try {
 						semaphore.acquire();
 						locked = true;
+						logger.debug("Acquired semaphore for step execution update");
 					}
 					catch (InterruptedException e) {
 						logger.error("Thread interrupted while locking for repository update");
@@ -420,24 +422,29 @@ public class TaskletStep extends AbstractStep {
 						logger.debug("Applying contribution: " + contribution);
 					}
 					stepExecution.apply(contribution);
-
+					logger.debug("contribution applied");
 				}
 
 				stepExecutionUpdated = true;
 
+				logger.debug("Update the stream with the latest ExecutionContext");
 				stream.update(stepExecution.getExecutionContext());
+				logger.debug("Stream updated");
 
 				try {
 					// Going to attempt a commit. If it fails this flag will
 					// stay false and we can use that later.
 					if (stepExecution.getExecutionContext().isDirty()) {
+						logger.debug("Update execution context");
 						getJobRepository().updateExecutionContext(stepExecution);
+						logger.debug("Execution context updated");
 					}
 					stepExecution.incrementCommitCount();
 					if (logger.isDebugEnabled()) {
 						logger.debug("Saving step execution before commit: " + stepExecution);
 					}
 					getJobRepository().update(stepExecution);
+					logger.debug("Job repository updated");
 				}
 				catch (Exception e) {
 					// If we get to here there was a problem saving the step

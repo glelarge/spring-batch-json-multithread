@@ -18,6 +18,8 @@ package org.springframework.batch.item.support;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.springframework.batch.item.Chunk;
 import org.springframework.batch.item.ExecutionContext;
 import org.springframework.batch.item.ItemStreamException;
@@ -48,6 +50,8 @@ import org.springframework.util.Assert;
  */
 public class SynchronizedItemStreamWriter<T> implements ItemStreamWriter<T>, InitializingBean {
 
+	private static final Log logger = LogFactory.getLog(SynchronizedItemStreamWriter.class);
+
 	private ItemStreamWriter<T> delegate;
 
 	private final Lock lock = new ReentrantLock();
@@ -57,6 +61,7 @@ public class SynchronizedItemStreamWriter<T> implements ItemStreamWriter<T>, Ini
 	 * @param delegate the delegate to set
 	 */
 	public void setDelegate(ItemStreamWriter<T> delegate) {
+		logger.debug("setDelegate called by delegate: " + System.identityHashCode(delegate));
 		this.delegate = delegate;
 	}
 
@@ -65,32 +70,42 @@ public class SynchronizedItemStreamWriter<T> implements ItemStreamWriter<T>, Ini
 	 */
 	@Override
 	public void write(Chunk<? extends T> items) throws Exception {
+		logger.info("write called for delegate " + System.identityHashCode(this.delegate) + ", try to get lock");
 		this.lock.lock();
+		logger.info("OK for the lock for delegate: " + System.identityHashCode(this.delegate));
 		try {
 			this.delegate.write(items);
+			logger.debug("items written by delegate: " + System.identityHashCode(this.delegate));
 		}
 		finally {
+			logger.debug("try to unlock for delegate: " + System.identityHashCode(this.delegate));
 			this.lock.unlock();
+			logger.debug("unlocked for delegate: " + System.identityHashCode(this.delegate));
 		}
 	}
 
 	@Override
 	public void open(ExecutionContext executionContext) throws ItemStreamException {
+		logger.debug("open called by delegate: " + System.identityHashCode(this.delegate) + " / context: " + System.identityHashCode(executionContext));
 		this.delegate.open(executionContext);
+		logger.debug("opened for delegate: " + System.identityHashCode(this.delegate));
 	}
 
 	@Override
 	public void update(ExecutionContext executionContext) throws ItemStreamException {
+		logger.debug("update called by delegate: " + System.identityHashCode(this.delegate) + " / context: " + System.identityHashCode(executionContext));
 		this.delegate.update(executionContext);
 	}
 
 	@Override
 	public void close() throws ItemStreamException {
+		logger.debug("close called by delegate: " + System.identityHashCode(this.delegate));
 		this.delegate.close();
 	}
 
 	@Override
 	public void afterPropertiesSet() throws Exception {
+		logger.debug("afterPropertiesSet called by delegate: " + System.identityHashCode(this.delegate));
 		Assert.state(this.delegate != null, "A delegate item writer is required");
 	}
 
