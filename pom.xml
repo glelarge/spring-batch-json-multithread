@@ -2,16 +2,24 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <groupId>org.springframework.batch</groupId>
-    <artifactId>spring-batch-mcve</artifactId>
+    <artifactId>spring-batch-json-multithread</artifactId>
     <version>1.0.0</version>
     <packaging>jar</packaging>
 
-    <name>spring-batch-mcve</name>
+    <name>spring-batch-json-multithread</name>
     <!-- TODO add issue number so we can refer to it when working on it -->
     <description>Minimal example to reproduce issue GH-XXX</description>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+        <!-- Versions to use -->
+        <spring-batch.version>5.1.2</spring-batch.version>
+        <spring-framework.version>6.1.13</spring-framework.version>
+        <h2.version>2.1.214</h2.version>
+        <junit-jupiter.version>5.10.2</junit-jupiter.version>
+        <xstream.version>1.4.20</xstream.version>
+        <jackson.version>2.17.2</jackson.version>
     </properties>
 
     <!-- TODO change dependencies as needed -->
@@ -19,7 +27,7 @@
         <dependency>
             <groupId>org.springframework.batch</groupId>
             <artifactId>spring-batch-core</artifactId>
-            <version>5.0.1</version>
+            <version>${spring-batch.version}</version>
         </dependency>
         <dependency>
             <groupId>org.slf4j</groupId>
@@ -29,19 +37,27 @@
         <dependency>
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
-            <version>2.1.214</version>
+            <version>${h2.version}</version>
             <scope>runtime</scope>
         </dependency>
+
+        <!-- Custom dependencies - BEGIN -->
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-jdbc</artifactId>
+            <version>${spring-framework.version}</version>
+        </dependency>
+        <!-- Custom dependencies - END -->
 
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-test</artifactId>
-            <version>6.0.6</version>
+            <version>${spring-framework.version}</version>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
-            <version>5.9.2</version>
+            <version>${junit-jupiter.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -56,6 +72,107 @@
                     <release>17</release>
                 </configuration>
             </plugin>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <version>3.0.0</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>repackage</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
         </plugins>
     </build>
+
+    <profiles>
+
+        <!-- Profile to add updated Spring Batch sources with more logs -->
+        <profile>
+            <id>logs</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>build-helper-maven-plugin</artifactId>
+                        <version>3.2.0</version>
+                        <executions>
+                            <execution>
+                                <id>add-source</id>
+                                <phase>generate-sources</phase>
+                                <goals>
+                                    <goal>add-source</goal>
+                                </goals>
+                                <configuration>
+                                    <sources>
+                                        <source>src/main/java_spring_batch_5.1.2_logs</source>
+                                    </sources>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <!-- Profile to add updated Spring Batch sources with more logs and the fix on TransactionAwareBufferedWriter.flush() method -->
+        <profile>
+            <id>fix_flush</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>build-helper-maven-plugin</artifactId>
+                        <version>3.2.0</version>
+                        <executions>
+                            <execution>
+                                <id>add-source</id>
+                                <phase>generate-sources</phase>
+                                <goals>
+                                    <goal>add-source</goal>
+                                </goals>
+                                <configuration>
+                                    <sources>
+                                        <source>src/main/java_spring_batch_5.1.2_fix_flush</source>
+                                    </sources>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <!-- Profile to add updated Spring Batch sources with more logs and the fix on TransactionAwareBufferedWriter.write() methods -->
+        <profile>
+            <id>fix_write</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>build-helper-maven-plugin</artifactId>
+                        <version>3.2.0</version>
+                        <executions>
+                            <execution>
+                                <id>add-source</id>
+                                <phase>generate-sources</phase>
+                                <goals>
+                                    <goal>add-source</goal>
+                                </goals>
+                                <configuration>
+                                    <sources>
+                                        <source>src/main/java_spring_batch_5.1.2_fix_write</source>
+                                    </sources>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+    </profiles>
+
 </project>
