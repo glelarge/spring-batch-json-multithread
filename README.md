@@ -62,25 +62,25 @@ Going even further, the issue seem to appear between the lock released by `Synch
 In a multi-threaded step, it seems that follow happens:
 - thread T1 begins to read data and produces formatted JSON **without** JSON delimiter :
     ```json
-    {record1}
+    {"code":10001}
     ```
 - thread T2 reads data and produces formatted JSON **with** a JSON delimiter :
     ```json
     ,
-    {record2}
+    {"code":10002}
     ```
 - issue happens here:
     - both threads releases locks
     - the `TaskletStep` semaphore can be acquired by T1 or T2
     - if T1 gets the semaphore, all is right :
         ```json
-        {record1},
-        {record2}
+        {"code":10001},
+        {"code":10002}
         ```
     - if T2 gets the semaphore, the 2nd record is written first and makes the JSON wrong formatted
         ```json
         ,
-        {record2} {record1}
+        {"code":10002} {"code":10001}
         ```
 
 
