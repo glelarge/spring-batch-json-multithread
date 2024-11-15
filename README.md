@@ -50,13 +50,38 @@ The class `SynchronizedItemStreamWriter` manages the multi-thread [with a Lock](
 Adding logs show that data seems to be flushed (meaning written to the real file) by the TransactionAwareBufferedWriter, but they are **actually** written right before the commit of the transaction.
 
 
-
 Digging into the code:
 - the `JsonFileItemWriter` inherits from `AbstractFileItemWriter`
 - `AbstractFileItemWriter.write()` calls an internal `OutputState.write()` to write data ([check the code](https://github.com/spring-projects/spring-batch/blob/fc1f3fcfc791196273b1249157c4e860b1df9025/spring-batch-infrastructure/src/main/java/org/springframework/batch/item/support/AbstractFileItemWriter.java#L235))
 - the `OutputState.write()` method writes and flush data to the writer ([check the code](https://github.com/spring-projects/spring-batch/blob/fc1f3fcfc791196273b1249157c4e860b1df9025/spring-batch-infrastructure/src/main/java/org/springframework/batch/item/support/AbstractFileItemWriter.java#L516C1-L523C4))
 - the writer is a `TransactionAwareBufferedWriter` ([check the code](https://github.com/spring-projects/spring-batch/blob/fc1f3fcfc791196273b1249157c4e860b1df9025/spring-batch-infrastructure/src/main/java/org/springframework/batch/item/support/AbstractFileItemWriter.java#L581))
 - this `TransactionAwareBufferedWriter` is actually writing data into the file, but the method `flush()` does not write any data ([check the code](https://github.com/spring-projects/spring-batch/blob/fc1f3fcfc791196273b1249157c4e860b1df9025/spring-batch-infrastructure/src/main/java/org/springframework/batch/support/transaction/TransactionAwareBufferedWriter.java#L187C1-L191C3))
+
+Going even further, the issue seem to appear between the lock released by `SynchronizedItemStreamWriter` and the semaphore acquirement by `TaskletStep` to update the stream (and actually write data to the real file before to commit the transaction).
+
+In a multi-threaded step, it seems that follow happens:
+- thread T1 begins to read data and produces formatted JSON **without** JSON delimiter :
+    ```json
+    {record1}
+    ```
+- thread T2 reads data and produces formatted JSON **with** a JSON delimiter :
+    ```json
+    ,
+    {record2}
+    ```
+- issue happens here:
+    - both threads releases locks
+    - the `TaskletStep` semaphore can be acquired by T1 or T2
+    - if T1 gets the semaphore, all is right :
+        ```json
+        {record1},
+        {record2}
+        ```
+    - if T2 gets the semaphore, the 2nd record is written first and makes the JSON wrong formatted
+        ```json
+        ,
+        {record2} {record1}
+        ```
 
 
 # Proposed fixes
@@ -105,6 +130,12 @@ The folder ([./src/main/java_spring_batch_5.1.2/](./src/main/java_spring_batch_5
 
 
 # How to run tests
+
+The command is working :
+```bash
+mvn package exec:java -Dexec.mainClass=org.springframework.batch.MyBatchJobConfiguration
+```
+but as the error is met randomly, it's better to run a test loop until encountering the error.
 
 The script [run.sh](./run.sh) runs a loop of 100 to run the jar.
 
