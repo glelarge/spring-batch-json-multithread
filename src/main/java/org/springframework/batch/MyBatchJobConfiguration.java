@@ -90,7 +90,7 @@ public class MyBatchJobConfiguration {
                 .processor(new MyDataProcessor(jdbcTemplate))
                 .writer(myBatchJsonItemWriter)
                 // FIXME Is this required ?
-                .stream(myBatchDefaultJsonItemWriter())
+                // .stream(myBatchDefaultJsonItemWriter())
                 // This defines the multi-threading using the TaskExecutor
                 .taskExecutor(applicationTaskExecutor)
                 // Set the number of concurrent threads
