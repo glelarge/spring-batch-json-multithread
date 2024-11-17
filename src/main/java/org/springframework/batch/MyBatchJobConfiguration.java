@@ -49,7 +49,7 @@ public class MyBatchJobConfiguration {
     private static final Logger logger = LoggerFactory.getLogger(MyBatchJobConfiguration.class);
 
     // Restrict the number of rows to read to short the tests
-    public final static String sqlQuery = "SELECT CODE, REF, TYPE, NATURE, ETAT, REF2 FROM mytable where CODE > 10000 and CODE < 10005";
+    public final static String sqlQuery = "SELECT CODE, REF, TYPE, NATURE, ETAT, REF2 FROM mytable where CODE > 10000 and CODE < 10020";
 
     private final int chunkSize;
     private final String commonFilename;
@@ -57,7 +57,7 @@ public class MyBatchJobConfiguration {
     private final FileSystemResource jsonFileResource;
 
     public MyBatchJobConfiguration() {
-        this.chunkSize = 1;
+        this.chunkSize = 4;
         logger.info("Initializing filenames in synchronized block by thread: {}", Thread.currentThread().getName());
         this.commonFilename = "mydata_" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmssSSS"));
         this.jsonFilename = this.commonFilename + ".json";
