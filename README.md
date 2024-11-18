@@ -13,16 +13,6 @@ When configured with multi-thread, the produced JSON is sometimes **not correctl
 
 Detected with **Spring Batch 5.1.2** and **Spring Framework 6.1.13**.
 
-## Expected result
-```json
-[
- {"code":10001,"ref":"A1B2C3D4E5F6","type":10,"nature":5,"etat":1,"ref2":"A1B2C3D4E5F6"},
- {"code":10002,"ref":"B2C3D4E5F6G7","type":11,"nature":6,"etat":2,"ref2":"B2C3D4E5F6G7"},
- {"code":10003,"ref":"C3D4E5F6G7H8","type":12,"nature":7,"etat":3,"ref2":"C3D4E5F6G7H8"},
- {"code":10004,"ref":"D4E5F6G7H8I9","type":13,"nature":8,"etat":4,"ref2":"D4E5F6G7H8I9"}
-]
-```
-
 ## Wrong result
 
 Sometime the produced JSON is misformatted :
@@ -30,6 +20,16 @@ Sometime the produced JSON is misformatted :
 [
 ,
  {"code":10002,"ref":"B2C3D4E5F6G7","type":11,"nature":6,"etat":2,"ref2":"B2C3D4E5F6G7"} {"code":10001,"ref":"A1B2C3D4E5F6","type":10,"nature":5,"etat":1,"ref2":"A1B2C3D4E5F6"},
+ {"code":10003,"ref":"C3D4E5F6G7H8","type":12,"nature":7,"etat":3,"ref2":"C3D4E5F6G7H8"},
+ {"code":10004,"ref":"D4E5F6G7H8I9","type":13,"nature":8,"etat":4,"ref2":"D4E5F6G7H8I9"}
+]
+```
+
+## Expected result
+```json
+[
+ {"code":10001,"ref":"A1B2C3D4E5F6","type":10,"nature":5,"etat":1,"ref2":"A1B2C3D4E5F6"},
+ {"code":10002,"ref":"B2C3D4E5F6G7","type":11,"nature":6,"etat":2,"ref2":"B2C3D4E5F6G7"},
  {"code":10003,"ref":"C3D4E5F6G7H8","type":12,"nature":7,"etat":3,"ref2":"C3D4E5F6G7H8"},
  {"code":10004,"ref":"D4E5F6G7H8I9","type":13,"nature":8,"etat":4,"ref2":"D4E5F6G7H8I9"}
 ]
@@ -62,12 +62,14 @@ Going even further, the issue seem to appear between the lock released by `Synch
 In a multi-threaded step, it seems that follow happens:
 - thread T1 begins to read data and produces formatted JSON **without** JSON delimiter :
     ```json
-    {"code":10001}
+    {"code":10001},
+    {"code":10002}
     ```
 - thread T2 reads data and produces formatted JSON **with** a JSON delimiter :
     ```json
     ,
-    {"code":10002}
+    {"code":10003},
+    {"code":10004}
     ```
 - issue happens here:
     - both threads releases locks
@@ -75,16 +77,37 @@ In a multi-threaded step, it seems that follow happens:
     - if T1 gets the semaphore, all is right :
         ```json
         {"code":10001},
-        {"code":10002}
+        {"code":10002},
+        {"code":10003},
+        {"code":10004}
         ```
     - if T2 gets the semaphore, the 2nd record is written first and makes the JSON wrong formatted
         ```json
         ,
-        {"code":10002} {"code":10001}
+        {"code":10003},
+        {"code":10004} {"code":10001},
+        {"code":10002}
         ```
 
+# Proposed fix
 
-# Proposed fixes
+Digging into the code, the multiple threads seem to be created by `TaskExecutorRepeatTemplate.getNextResult()`.
+
+The idea is to create the first thread to manage the first chunk, and wait for the completion of this thread.
+When the thread is terminated, other threads are created as usual.
+Specific code is on ([#9471d7c](https://github.com/glelarge/spring-batch-json-multithread/commit/9471d7cdc51bfa669f3d0bc24ad702a16f3a6dd5)).
+
+
+```bash
+# Build the jar with specific profile to embed the fix
+mvn clean package -Pfix_latch
+
+# Run the tests
+./run.sh
+```
+
+
+# Proposed workarounds
 
 The code of `TransactionAwareBufferedWriter` has been updated in 2 different ways to fix the issue, both relying on the `forceSync` parameter, perhaps this parameter is not adapted.
 
@@ -146,7 +169,8 @@ The script [run.sh](./run.sh) runs a loop of 100 to run the jar.
 # -Plogs
 # -Pfix_write
 # -Pfix_flush
-mvn clean package # [-Plogs|-Pfix_write|-Pfix_flush]
+# -Pfix_latch
+mvn clean package # [-Plogs|-Pfix_write|-Pfix_flush|-Pfix_latch]
 
 # Run the tests
 ./run.sh
