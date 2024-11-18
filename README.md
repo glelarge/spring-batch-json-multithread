@@ -146,7 +146,7 @@ Multi-threading is configured helping the `TaskExecutor` and deprecated `throttl
 
 The `pom.xml` provides 3 profiles to embed optional sources :
 - profile `logs` adds some updated Spring Batch sources to add logs ([sources](./src/main/java_spring_batch_5.1.2_logs/))
-- profile `fix_latch` adds some updated Spring Batch sources to add logs and the fix on `TaskExecutorRepeatTemplate` with `CountDownLatch` ([sources](./src/main/java_spring_batch_5.1.2_fix_flush/))
+- profile `fix_latch` adds some updated Spring Batch sources to add logs and the fix on `TaskExecutorRepeatTemplate` with `CountDownLatch` ([sources](./src/main/java_spring_batch_5.1.2_fix_latch/))
 - profile `fix_write` adds some updated Spring Batch sources to add logs and the fix on `TransactionAwareBufferedWriter.write()` methods ([sources](./src/main/java_spring_batch_5.1.2_fix_write/))
 - profile `fix_flush` adds some updated Spring Batch sources to add logs and the fix on `TransactionAwareBufferedWriter.flush()` methods ([sources](./src/main/java_spring_batch_5.1.2_fix_flush/))
 
