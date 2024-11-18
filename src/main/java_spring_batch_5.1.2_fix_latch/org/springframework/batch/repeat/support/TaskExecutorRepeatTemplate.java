@@ -16,6 +16,8 @@
 
 package org.springframework.batch.repeat.support;
 
+import java.util.concurrent.CountDownLatch;
+
 import org.springframework.batch.repeat.RepeatCallback;
 import org.springframework.batch.repeat.RepeatContext;
 import org.springframework.batch.repeat.RepeatException;
@@ -58,6 +60,8 @@ public class TaskExecutorRepeatTemplate extends RepeatTemplate {
 	private int throttleLimit = DEFAULT_THROTTLE_LIMIT;
 
 	private TaskExecutor taskExecutor = new SyncTaskExecutor();
+
+	private final CountDownLatch latch = new CountDownLatch(1);
 
 	/**
 	 * Public setter for the throttle limit. The throttle limit is the largest number of
@@ -110,7 +114,7 @@ public class TaskExecutorRepeatTemplate extends RepeatTemplate {
 			 * Wrap the callback in a runnable that will add its result to the queue when
 			 * it is ready.
 			 */
-			runnable = new ExecutingRunnable(callback, context, queue);
+			runnable = new ExecutingRunnable(callback, context, queue, latch);
 
 			/*
 			 * Tell the runnable that it can expect a result. This could have been
@@ -133,6 +137,9 @@ public class TaskExecutorRepeatTemplate extends RepeatTemplate {
 			/*
 			 * Keep going until we get a result that is finished, or early termination...
 			 */
+			logger.debug("Waiting for latch : " + latch.hashCode() + " (count=" + latch.getCount() + ")");
+			latch.await();
+			logger.debug("Latch released : " + latch.hashCode() + " (count=" + latch.getCount() + ")");
 		}
 		while (queue.isEmpty() && !isComplete(context));
 
@@ -216,14 +223,15 @@ public class TaskExecutorRepeatTemplate extends RepeatTemplate {
 
 		private volatile Throwable error;
 
-		public ExecutingRunnable(RepeatCallback callback, RepeatContext context, ResultQueue<ResultHolder> queue) {
+		private CountDownLatch latch;
+		public ExecutingRunnable(RepeatCallback callback, RepeatContext context, ResultQueue<ResultHolder> queue, CountDownLatch latch) {
 
 			super();
 
 			this.callback = callback;
 			this.context = context;
 			this.queue = queue;
-
+			this.latch = latch;
 		}
 
 		/**
@@ -272,6 +280,9 @@ public class TaskExecutorRepeatTemplate extends RepeatTemplate {
 
 				queue.put(this);
 
+				logger.debug("Will count down the latch : " + latch.hashCode() + " (count=" + latch.getCount() + ")");
+				this.latch.countDown();
+				logger.debug("Latch updated : " + latch.hashCode() + " (count=" + latch.getCount() + ")");
 			}
 		}
 
