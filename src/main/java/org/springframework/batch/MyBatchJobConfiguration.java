@@ -182,6 +182,7 @@ public class MyBatchJobConfiguration {
                 // FIXME Set to true to enforce synchronous writing
                 .forceSync(true)
                 .jsonObjectMarshaller(marshaller)
+                .transactional(false)
                 .build();
 
     }
