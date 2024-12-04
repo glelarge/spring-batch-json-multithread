@@ -39,6 +39,13 @@ When the file is not well formatted, the error is always the same :
 - a single comma appears at the first line
 - the second line contains 2 JSON records without separator
 
+
+# Quick fix
+
+As [commented](https://github.com/spring-projects/spring-batch/issues/4708#issuecomment-2512280057) in the Spring Batch issue, setting the transactional to `false` enforce the buffer to be flushed to the file independently of the transaction, and it works ! :thumbsup:
+[source](src/main/java/org/springframework/batch/MyBatchJobConfiguration.java#L186)
+
+
 # Investigation
 
 Starting with a chunk size quite big (>100), the issue was not met, or perhaps not seen because the file format was not checked systematically.
@@ -107,28 +114,6 @@ mvn clean package -Pfix_latch
 ```
 
 
-# Proposed workarounds
-
-The code of `TransactionAwareBufferedWriter` has been updated in 2 different ways to fix the issue, both relying on the `forceSync` parameter, perhaps this parameter is not adapted.
-
-Update code is flagged with `// FIXME` .
-
-## Update TransactionAwareBufferedWriter.write() methods
-
-- If `forceSync` is set, the methods writes directly into the channel instead of simply returning a buffer.
-- Both methods `write()` are updated (with `char[]` and `String`).
-- This does not write data when `flush()` is called
-
-Updated code is [here](./src/main/java_spring_batch_5.1.2_fix_write/org/springframework/batch/support/transaction/TransactionAwareBufferedWriter.java).
-
-## Update TransactionAwareBufferedWriter.flush() method
-
-- If `forceSync` is set, the method get the stored buffer to write it into the channel.
-- Stored buffer is cleaned
-
-Updated code is [here](./src/main/java_spring_batch_5.1.2_fix_flush/org/springframework/batch/support/transaction/TransactionAwareBufferedWriter.java).
-
-
 # Project 
 
 ## Main sources
@@ -144,11 +129,9 @@ Multi-threading is configured helping the `TaskExecutor` and deprecated `throttl
 
 ## Optional sources
 
-The `pom.xml` provides 3 profiles to embed optional sources :
+The `pom.xml` provides profiles to embed optional sources :
 - profile `logs` adds some updated Spring Batch sources to add logs ([sources](./src/main/java_spring_batch_5.1.2_logs/))
 - profile `fix_latch` adds some updated Spring Batch sources to add logs and the fix on `TaskExecutorRepeatTemplate` with `CountDownLatch` ([sources](./src/main/java_spring_batch_5.1.2_fix_latch/))
-- profile `fix_write` adds some updated Spring Batch sources to add logs and the fix on `TransactionAwareBufferedWriter.write()` methods ([sources](./src/main/java_spring_batch_5.1.2_fix_write/))
-- profile `fix_flush` adds some updated Spring Batch sources to add logs and the fix on `TransactionAwareBufferedWriter.flush()` methods ([sources](./src/main/java_spring_batch_5.1.2_fix_flush/))
 
 The folder ([./src/main/java_spring_batch_5.1.2/](./src/main/java_spring_batch_5.1.2/)) contains original of Spring Batch sources (version 5.1.2).
 
@@ -168,10 +151,8 @@ The script [run.sh](./run.sh) runs a loop of 100 to run the jar.
 # Build the jar
 # 1 optional profile can be added :
 # -Plogs
-# -Pfix_write
-# -Pfix_flush
 # -Pfix_latch
-mvn clean package # [-Plogs|-Pfix_write|-Pfix_flush|-Pfix_latch]
+mvn clean package # [-Plogs|-Pfix_latch]
 
 # Run the tests
 ./run.sh

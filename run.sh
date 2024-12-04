@@ -5,6 +5,9 @@
 
 loop_count=100
 
+# Uncomment following line to get the error, or export from the shell
+# export MYBATCH_TRANSACTIONAL=true
+
 for i in $(seq 1 ${loop_count})
 do
     echo ""

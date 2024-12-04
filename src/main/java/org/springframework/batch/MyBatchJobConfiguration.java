@@ -41,6 +41,7 @@ import org.springframework.jdbc.support.JdbcTransactionManager;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.beans.factory.annotation.Value;
 
 @Configuration
 @EnableBatchProcessing
@@ -55,6 +56,10 @@ public class MyBatchJobConfiguration {
     private final String commonFilename;
     private final String jsonFilename;
     private final FileSystemResource jsonFileResource;
+
+    // Can be overriden by the environment variable MYBATCH_TRANSACTIONAL
+    @Value("${mybatch.transactional:false}")
+    private boolean transactional;
 
     public MyBatchJobConfiguration() {
         this.chunkSize = 4;
@@ -89,8 +94,6 @@ public class MyBatchJobConfiguration {
                 .reader(myBatchItemReader)
                 .processor(new MyDataProcessor(jdbcTemplate))
                 .writer(myBatchJsonItemWriter)
-                // FIXME Is this required ?
-                // .stream(myBatchDefaultJsonItemWriter())
                 // This defines the multi-threading using the TaskExecutor
                 .taskExecutor(applicationTaskExecutor)
                 // Set the number of concurrent threads
@@ -179,12 +182,9 @@ public class MyBatchJobConfiguration {
         return new JsonFileItemWriterBuilder<MyData>()
                 .name("myBatchJsonItemWriter")
                 .resource(this.jsonFileResource)
-                // FIXME Set to true to enforce synchronous writing
-                .forceSync(true)
                 .jsonObjectMarshaller(marshaller)
-                .transactional(false)
+                .transactional(transactional)
                 .build();
-
     }
 
     /*
